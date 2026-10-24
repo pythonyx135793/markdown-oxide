@@ -1,0 +1,106 @@
+name: Issue269 code delimiter validation
+
+on:
+  push:
+    branches: [codex/code-span-validation-r882]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e81fd343200864236c66469633ee61125b11583a
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
+          rustflags: ""
+      - name: Formatting check
+        shell: python
+        run: |
+          import pathlib, subprocess
+          result = subprocess.run(['cargo', 'fmt', '--all', '--', '--check'])
+          if result.returncode:
+              subprocess.run(['cargo', 'fmt', '--all'], check=True)
+              folder = pathlib.Path('formatting-evidence')
+              folder.mkdir()
+              for name in ['mod.rs', 'parsing.rs']:
+                  (folder / name).write_bytes((pathlib.Path('src/vault') / name).read_bytes())
+              (folder / 'patch.diff').write_bytes(subprocess.check_output(['git', 'diff']))
+          raise SystemExit(result.returncode)
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: formatting-${{ runner.os }}
+          path: formatting-evidence/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Original code must fail the new reported cases
+        if: runner.os == 'Linux'
+        shell: python
+        run: |
+          import pathlib, subprocess
+          paths = [pathlib.Path('src/vault/mod.rs'), pathlib.Path('src/vault/parsing.rs')]
+          fixed = [p.read_bytes() for p in paths]
+          subprocess.run(['git', 'fetch', '--depth=1', 'origin', '6a331655bc9f143004a727446d76450bfe5cff4b'], check=True)
+          original = [subprocess.check_output(['git', 'show', '6a331655bc9f143004a727446d76450bfe5cff4b:' + p.as_posix()]) for p in paths]
+          marker = b'// tests\n#[cfg(test)]'
+          assert fixed[0].replace(b'\r\n', b'\n').count(marker) == original[0].count(marker) == 1
+          try:
+              paths[0].write_bytes(original[0].split(marker)[0] + marker + fixed[0].replace(b'\r\n', b'\n').split(marker)[1])
+              paths[1].write_bytes(original[1])
+              result = subprocess.run(['cargo', 'test', '--locked', 'issue269', '--', '--nocapture'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              output = result.stdout.decode('utf-8', errors='replace')
+              print(output)
+              assert result.returncode != 0 and 'error[E' not in output
+              assert '4 passed; 4 failed' in output, 'Expected four actual negative controls, plus four compatibility controls'
+              for case in ['split_literal_markers_are_not_references', 'partially_coded_delimiters_are_ignored', 'multiline_reference_crossing_fence_is_not_a_link', 'unicode_prefix_does_not_hide_neighbouring_links']:
+                  assert any('issue269_' + case in line and 'FAILED' in line for line in output.splitlines()), case
+          finally:
+              for path, data in zip(paths, fixed):
+                  path.write_bytes(data)
+          subprocess.run(['git', 'diff', '--exit-code'], check=True)
+      - name: Build exact repaired source
+        shell: pwsh
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+          cargo build --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Full tests
+        shell: pwsh
+        run: |
+          cargo test --locked -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Clippy
+        shell: pwsh
+        run: |
+          cargo clippy --locked --all-targets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify exact clean source and binary
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git status --porcelain
+          Get-FileHash src/vault/mod.rs,src/vault/parsing.rs,Cargo.toml,Cargo.lock -Algorithm SHA256
+          if ($IsWindows) { Get-FileHash target/debug/markdown-oxide.exe -Algorithm SHA256 }
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows' && success()
+        with:
+          name: issue269-repaired-windows
+          path: target/debug/markdown-oxide.exe
+          if-no-files-found: error
+          retention-days: 14
