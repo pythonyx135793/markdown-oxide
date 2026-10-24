@@ -1,0 +1,40 @@
+name: Issue 274 Windows editor baseline
+
+on:
+  push:
+    branches: [codex/editor-baseline-r738]
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6a331655bc9f143004a727446d76450bfe5cff4b
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          rustflags: ""
+      - name: Build unmodified baseline
+        shell: pwsh
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+          cargo build --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-FileHash target/debug/markdown-oxide.exe -Algorithm SHA256
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue274-unmodified-windows-baseline
+          path: target/debug/markdown-oxide.exe
+          if-no-files-found: error
+          retention-days: 14
