@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 8c2c47b0efc3fc81027f6c37538e03c29696be74
+          ref: 84db10868a0826597a9c12b78a40caf75564d1cf
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
