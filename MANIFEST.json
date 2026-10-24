@@ -1,0 +1,29 @@
+{
+  "application_base": "6a331655bc9f143004a727446d76450bfe5cff4b",
+  "application_fixed": "e81fd343200864236c66469633ee61125b11583a",
+  "editor": "Neovim0.12.6/NeovimQt0.2.20/Windows10",
+  "capture": "Unedited target-window GDI screen recordings, one continuous take per phase. Private separate TestFiles copies; source TestFiles unchanged.",
+  "entries": [
+    {
+      "path": "before.mp4",
+      "phase": "baseline",
+      "bytes": 253928,
+      "sha256": "2ca1b84de407c54ed3b4d16c66401dda6d18a10d6d041bdfedbc51af7392a378",
+      "width": 1100,
+      "height": 720,
+      "duration": 70,
+      "frames": 840
+    },
+    {
+      "path": "after.mp4",
+      "phase": "fixed",
+      "bytes": 237645,
+      "sha256": "e23c8fb6d477bc9dc1fe7a373cd59b9724c550b29ead9c94e5865454ad321d59",
+      "width": 1100,
+      "height": 720,
+      "duration": 70,
+      "frames": 840
+    }
+  ],
+  "checks": "Literal-code false diagnostic2to1 while realmissing control remains; wiki/heading/tag completion, definition/hover and native block snippet+executeCommand+:wall preserved."
+}
