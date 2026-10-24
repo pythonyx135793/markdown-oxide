@@ -1,0 +1,41 @@
+{
+  "source": "84db10868a0826597a9c12b78a40caf75564d1cf",
+  "base": "6a331655bc9f143004a727446d76450bfe5cff4b",
+  "run": "https://github.com/pythonyx135793/markdown-oxide/actions/runs/40120919851",
+  "Windows": {
+    "job": 120952065624,
+    "tests_passed": 80,
+    "failed": 0,
+    "ignored": 0,
+    "original_production_new_regressions_failed": 3,
+    "binary_sha256": "cec54b3bbc37b870aaa1f4b538aae29fc6233e1bb3b6a21a0c38adb79c45969c"
+  },
+  "Linux": {
+    "job": 120952065730,
+    "tests_passed": 80,
+    "failed": 0,
+    "ignored": 0
+  },
+  "checks": [
+    "cargo build --locked",
+    "cargo test --locked -- --nocapture",
+    "cargo fmt --all -- --check",
+    "cargo clippy --locked --all-targets",
+    "git diff --exit-code"
+  ],
+  "editor": {
+    "Windows": "10.0.19045",
+    "Neovim": "0.12.6",
+    "GUI": "Neovim Qt 0.2.20",
+    "before": "Five diagnostics including four existing nested targets; nested definition returned no locations; hover lacked file preview.",
+    "after": "Only intentionally missing target remains diagnostic; nested file and indexed-block navigation and file preview succeeded.",
+    "both_phases": [
+      "Wiki/heading completion for Resolved File",
+      "Hierarchical tag completion",
+      "Unindexed block completion, acceptance and :wall saved generated block IDs in target files"
+    ],
+    "fixture": "Separate copies of repository TestFiles plus a dotted nested note; source TestFiles unchanged."
+  },
+  "scope": "Native Windows path separators. Existing client root selection and current-file-relative link rules remain. Unix literal backslashes preserved by a platform-specific test.",
+  "receipts": "Unsubmitted/unawarded/unpaid at this review. No payment instructions sent."
+}
