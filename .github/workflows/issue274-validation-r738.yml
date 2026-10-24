@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 41c735294f69d343577283437a57f4a6270a5e68
+          ref: 8c2c47b0efc3fc81027f6c37538e03c29696be74
           persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -33,11 +33,14 @@ jobs:
           import pathlib, subprocess
           path = pathlib.Path('src/vault/mod.rs')
           fixed = path.read_bytes()
+          subprocess.run(['git', 'fetch', '--depth=1', 'origin', '6a331655bc9f143004a727446d76450bfe5cff4b'], check=True)
           original = subprocess.check_output(['git', 'show', '6a331655bc9f143004a727446d76450bfe5cff4b:src/vault/mod.rs'])
+          fixed_lf = fixed.replace(b'\r\n', b'\n')
+          original = original.replace(b'\r\n', b'\n')
           marker = b'// tests\n#[cfg(test)]'
-          assert fixed.count(marker) == original.count(marker) == 1
+          assert fixed_lf.count(marker) == original.count(marker) == 1
           try:
-              path.write_bytes(original.split(marker)[0] + marker + fixed.split(marker)[1])
+              path.write_bytes(original.split(marker)[0] + marker + fixed_lf.split(marker)[1])
               result = subprocess.run(['cargo', 'test', '--locked', 'issue274', '--', '--nocapture'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
               print(result.stdout.decode('utf-8', errors='replace'))
               assert result.returncode != 0, 'Original production unexpectedly passed'
