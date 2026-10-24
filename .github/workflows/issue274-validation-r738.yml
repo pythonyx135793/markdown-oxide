@@ -1,0 +1,87 @@
+name: Issue 274 native Windows and Linux validation
+
+on:
+  push:
+    branches: [codex/editor-validation-r738]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 41c735294f69d343577283437a57f4a6270a5e68
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
+          rustflags: ""
+      - name: Original production must fail new Windows regressions
+        if: runner.os == 'Windows'
+        shell: python
+        run: |
+          import pathlib, subprocess
+          path = pathlib.Path('src/vault/mod.rs')
+          fixed = path.read_bytes()
+          original = subprocess.check_output(['git', 'show', '6a331655bc9f143004a727446d76450bfe5cff4b:src/vault/mod.rs'])
+          marker = b'// tests\n#[cfg(test)]'
+          assert fixed.count(marker) == original.count(marker) == 1
+          try:
+              path.write_bytes(original.split(marker)[0] + marker + fixed.split(marker)[1])
+              result = subprocess.run(['cargo', 'test', '--locked', 'issue274', '--', '--nocapture'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              print(result.stdout.decode('utf-8', errors='replace'))
+              assert result.returncode != 0, 'Original production unexpectedly passed'
+              output = result.stdout.decode('utf-8', errors='replace')
+              assert 'test result: FAILED' in output and '3 failed' in output, 'Expected three actual assertion failures'
+              assert 'error[E' not in output, 'Compile failure is not a regression proof'
+          finally:
+              path.write_bytes(fixed)
+          subprocess.run(['git', 'diff', '--exit-code'], check=True)
+      - name: Build exact repaired source
+        shell: pwsh
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+          cargo build --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Full tests
+        shell: pwsh
+        run: |
+          cargo test --locked -- --nocapture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Formatting
+        shell: pwsh
+        run: |
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Clippy
+        shell: pwsh
+        run: |
+          cargo clippy --locked --all-targets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify clean source and binary
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git status --porcelain
+          Get-FileHash src/vault/mod.rs,Cargo.toml,Cargo.lock -Algorithm SHA256
+          if ($IsWindows) { Get-FileHash target/debug/markdown-oxide.exe -Algorithm SHA256 }
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: issue274-repaired-windows
+          path: target/debug/markdown-oxide.exe
+          if-no-files-found: error
+          retention-days: 14
